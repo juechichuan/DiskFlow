@@ -75,7 +75,7 @@ fun PageHeader(
                 letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified,
             )
             Spacer(Modifier.height(5.dp))
-            Text(title, style = MaterialTheme.typography.headlineLarge)
+            Text(title, style = MaterialTheme.typography.headlineLarge, color = Mint)
             Spacer(Modifier.height(4.dp))
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         }
@@ -108,7 +108,7 @@ fun SectionTitle(
             }
             Spacer(Modifier.width(10.dp))
         }
-        Text(title, style = MaterialTheme.typography.titleLarge)
+        Text(title, style = MaterialTheme.typography.titleLarge, color = Mint)
     }
 }
 

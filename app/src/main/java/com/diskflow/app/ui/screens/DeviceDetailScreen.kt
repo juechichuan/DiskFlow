@@ -37,6 +37,7 @@ import com.diskflow.app.ui.components.formatEventTime
 import com.diskflow.app.ui.components.mountStateColor
 import com.diskflow.app.ui.components.mountStateLabel
 import com.diskflow.app.ui.components.volumeKindLabel
+import com.diskflow.app.ui.theme.Mint
 
 @Composable
 fun DeviceDetailScreen(
@@ -61,7 +62,7 @@ fun DeviceDetailScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
                 }
-                Text("设备详情", style = MaterialTheme.typography.titleLarge)
+                Text("设备详情", style = MaterialTheme.typography.titleLarge, color = Mint)
             }
         }
         item {

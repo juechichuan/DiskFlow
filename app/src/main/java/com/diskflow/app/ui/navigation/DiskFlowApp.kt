@@ -168,6 +168,8 @@ fun DiskFlowApp(viewModel: DiskFlowViewModel) {
                         onOpenSystemSettings = viewModel::openSystemStorageSettings,
                         onMarkCompleted = viewModel::markCompletedByUser,
                         onCancel = viewModel::cancelPlan,
+                        onExecuteFormat = viewModel::executeFormat,
+                        onRefreshCapabilities = viewModel::refreshCapabilities,
                     )
                 }
                 composable(TopLevelDestination.TOOLS.route) {

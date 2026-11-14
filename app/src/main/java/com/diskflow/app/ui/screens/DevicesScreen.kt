@@ -163,7 +163,7 @@ fun DevicesScreen(
         item {
             NoticeCard(
                 title = "权限边界",
-                message = "免 Root 模式可读取系统公开的存储信息并配置方案；真正格式化必须由系统或电脑工具执行。",
+                message = "免 Root 时可读取系统公开的存储信息并配置方案；真正写入文件系统需要 Root，或改用系统与电脑工具执行。",
                 icon = Icons.Rounded.Shield,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )

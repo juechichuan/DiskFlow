@@ -5,6 +5,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.diskflow.app.data.format.FormatCapabilities
+import com.diskflow.app.data.format.FormatEngine
+import com.diskflow.app.data.format.FormatOutcome
 import com.diskflow.app.data.local.DiskFlowStore
 import com.diskflow.app.data.storage.StorageRepository
 import com.diskflow.app.domain.FormatPolicy
@@ -39,14 +42,24 @@ data class DevicesUiState(
     val usbRequests: Set<Int> = emptySet(),
 )
 
+sealed interface FormatExecution {
+    data object Idle : FormatExecution
+    data class Running(val step: String) : FormatExecution
+    data class Finished(val success: Boolean, val message: String) : FormatExecution
+}
+
 data class FormatUiState(
     val plan: FormatPlan = FormatPlan(),
     val stage: WizardStage = WizardStage.CONFIGURING,
     val isRecording: Boolean = false,
     val completionMarked: Boolean = false,
+    val capabilities: FormatCapabilities? = null,
+    val execution: FormatExecution = FormatExecution.Idle,
 ) {
     val labelError: String?
         get() = FormatPolicy.validateVolumeLabel(plan.fileSystem, plan.volumeLabel).errorMessage
+
+    val isExecuting: Boolean get() = execution is FormatExecution.Running
 }
 
 data class ToolsUiState(
@@ -70,6 +83,7 @@ data class UiMessage(
 class DiskFlowViewModel(
     private val storageRepository: StorageRepository,
     private val dataStore: DiskFlowStore,
+    private val formatEngine: FormatEngine,
 ) : ViewModel() {
     private val refreshMutex = Mutex()
 
@@ -103,6 +117,53 @@ class DiskFlowViewModel(
                 _format.update { it.copy(plan = restored) }
             }
             refreshDevices()
+            refreshCapabilities()
+        }
+    }
+
+    fun refreshCapabilities() {
+        viewModelScope.launch {
+            val capabilities = runCatching { formatEngine.probe() }.getOrElse {
+                FormatCapabilities(hasRoot = false, message = "无法检测 Root 状态：${it.message ?: "未知错误"}")
+            }
+            _format.update { it.copy(capabilities = capabilities) }
+        }
+    }
+
+    fun executeFormat() {
+        val state = _format.value
+        if (state.isExecuting) return
+        val device = _devices.value.snapshot.devices.firstOrNull { it.id == state.plan.deviceId }
+        when {
+            device == null -> notify("目标设备未连接，请刷新后重试", isError = true)
+            state.labelError != null -> notify(state.labelError!!, isError = true)
+            state.capabilities?.hasRoot != true -> notify("未获得 Root 权限，无法直接格式化", isError = true)
+            else -> viewModelScope.launch {
+                _format.update { it.copy(execution = FormatExecution.Running("准备中")) }
+                val outcome = runCatching {
+                    formatEngine.format(device, state.plan) { step ->
+                        _format.update { it.copy(execution = FormatExecution.Running(step)) }
+                    }
+                }.getOrElse {
+                    FormatOutcome(false, "执行失败：${it.message ?: "未知错误"}")
+                }
+                _format.update {
+                    it.copy(execution = FormatExecution.Finished(outcome.success, outcome.message))
+                }
+                runCatching {
+                    dataStore.addEvent(
+                        state.plan,
+                        if (outcome.success) {
+                            OperationEventType.FORMAT_SUCCEEDED
+                        } else {
+                            OperationEventType.FORMAT_FAILED
+                        },
+                        outcome.message,
+                    )
+                }
+                refreshDevices()
+                notify(outcome.message, isError = !outcome.success)
+            }
         }
     }
 
@@ -171,7 +232,11 @@ class DiskFlowViewModel(
                     dataStore.addEvent(state.plan, OperationEventType.PLAN_CREATED)
                 }.onSuccess {
                     _format.update {
-                        it.copy(stage = WizardStage.READY, completionMarked = false)
+                        it.copy(
+                            stage = WizardStage.READY,
+                            completionMarked = false,
+                            execution = FormatExecution.Idle,
+                        )
                     }
                 }.onFailure {
                     notify("方案保存失败，请重试", isError = true)
@@ -182,7 +247,13 @@ class DiskFlowViewModel(
     }
 
     fun backToConfiguration() {
-        _format.update { it.copy(stage = WizardStage.CONFIGURING, completionMarked = false) }
+        _format.update {
+            it.copy(
+                stage = WizardStage.CONFIGURING,
+                completionMarked = false,
+                execution = FormatExecution.Idle,
+            )
+        }
     }
 
     fun cancelPlan() {
@@ -190,7 +261,11 @@ class DiskFlowViewModel(
         viewModelScope.launch {
             runCatching { dataStore.addEvent(plan, OperationEventType.CANCELLED) }
             _format.update {
-                it.copy(stage = WizardStage.CONFIGURING, completionMarked = false)
+                it.copy(
+                    stage = WizardStage.CONFIGURING,
+                    completionMarked = false,
+                    execution = FormatExecution.Idle,
+                )
             }
             notify("已取消执行指引，未修改存储设备")
         }
@@ -357,11 +432,12 @@ class DiskFlowViewModel(
     class Factory(
         private val storageRepository: StorageRepository,
         private val dataStore: DiskFlowStore,
+        private val formatEngine: FormatEngine,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(DiskFlowViewModel::class.java))
-            return DiskFlowViewModel(storageRepository, dataStore) as T
+            return DiskFlowViewModel(storageRepository, dataStore, formatEngine) as T
         }
     }
 }

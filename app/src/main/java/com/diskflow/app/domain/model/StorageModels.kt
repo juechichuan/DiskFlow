@@ -121,6 +121,8 @@ enum class OperationEventType {
     SYSTEM_SETTINGS_OPENED,
     USER_MARKED_COMPLETE,
     CANCELLED,
+    FORMAT_SUCCEEDED,
+    FORMAT_FAILED,
 }
 
 @Serializable
