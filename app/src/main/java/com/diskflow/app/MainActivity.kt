@@ -6,7 +6,6 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.diskflow.app.data.format.RootFormatEngine
 import com.diskflow.app.data.local.DiskFlowDataStore
 import com.diskflow.app.data.storage.AndroidStorageRepository
 import com.diskflow.app.ui.DiskFlowViewModel
@@ -22,9 +21,8 @@ class MainActivity : ComponentActivity() {
         )
         val storageRepository = AndroidStorageRepository(applicationContext)
         val dataStore = DiskFlowDataStore(applicationContext)
-        val formatEngine = RootFormatEngine()
         val viewModel by viewModels<DiskFlowViewModel> {
-            DiskFlowViewModel.Factory(storageRepository, dataStore, formatEngine)
+            DiskFlowViewModel.Factory(storageRepository, dataStore)
         }
         setContent {
             DiskFlowTheme {

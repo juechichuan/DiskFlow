@@ -11,7 +11,7 @@ interface DiskFlowStore {
     val authorizedTreeUri: Flow<String?>
 
     suspend fun saveDraft(plan: FormatPlan)
-    suspend fun addEvent(plan: FormatPlan, type: OperationEventType, detail: String? = null)
+    suspend fun addEvent(plan: FormatPlan, type: OperationEventType)
     suspend fun deleteEvent(id: String)
     suspend fun clearEvents()
     suspend fun saveAuthorizedTreeUri(uri: String)

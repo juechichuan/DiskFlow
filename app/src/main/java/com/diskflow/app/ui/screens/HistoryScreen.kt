@@ -14,7 +14,6 @@ import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Settings
@@ -155,8 +154,6 @@ private fun eventTitle(type: OperationEventType): String = when (type) {
     OperationEventType.SYSTEM_SETTINGS_OPENED -> "已打开系统设置"
     OperationEventType.USER_MARKED_COMPLETE -> "用户标记完成"
     OperationEventType.CANCELLED -> "方案已取消"
-    OperationEventType.FORMAT_SUCCEEDED -> "格式化成功"
-    OperationEventType.FORMAT_FAILED -> "格式化失败"
 }
 
 private fun eventIcon(type: OperationEventType): ImageVector = when (type) {
@@ -164,8 +161,6 @@ private fun eventIcon(type: OperationEventType): ImageVector = when (type) {
     OperationEventType.SYSTEM_SETTINGS_OPENED -> Icons.Rounded.Settings
     OperationEventType.USER_MARKED_COMPLETE -> Icons.Rounded.CheckCircle
     OperationEventType.CANCELLED -> Icons.Rounded.Cancel
-    OperationEventType.FORMAT_SUCCEEDED -> Icons.Rounded.CheckCircle
-    OperationEventType.FORMAT_FAILED -> Icons.Rounded.ErrorOutline
 }
 
 @Composable
@@ -174,6 +169,4 @@ private fun eventColor(type: OperationEventType) = when (type) {
     OperationEventType.SYSTEM_SETTINGS_OPENED -> Warning
     OperationEventType.USER_MARKED_COMPLETE -> Mint
     OperationEventType.CANCELLED -> Error
-    OperationEventType.FORMAT_SUCCEEDED -> Mint
-    OperationEventType.FORMAT_FAILED -> Error
 }

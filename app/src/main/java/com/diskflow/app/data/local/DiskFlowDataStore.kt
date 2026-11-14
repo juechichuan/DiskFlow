@@ -49,14 +49,12 @@ class DiskFlowDataStore(context: Context) : DiskFlowStore {
         }
     }
 
-    override suspend fun addEvent(plan: FormatPlan, type: OperationEventType, detail: String?) {
-        val text = detail ?: when (type) {
+    override suspend fun addEvent(plan: FormatPlan, type: OperationEventType) {
+        val detail = when (type) {
             OperationEventType.PLAN_CREATED -> "已保存 ${plan.fileSystem.displayName} 方案，尚未执行格式化"
             OperationEventType.SYSTEM_SETTINGS_OPENED -> "已打开系统存储设置，后续操作由系统管理"
             OperationEventType.USER_MARKED_COMPLETE -> "用户确认已在系统工具中完成操作"
             OperationEventType.CANCELLED -> "已取消方案，未修改存储设备"
-            OperationEventType.FORMAT_SUCCEEDED -> "Root 格式化命令执行成功"
-            OperationEventType.FORMAT_FAILED -> "Root 格式化命令执行失败"
         }
         val event = OperationEvent(
             id = UUID.randomUUID().toString(),
@@ -64,7 +62,7 @@ class DiskFlowDataStore(context: Context) : DiskFlowStore {
             deviceName = plan.deviceName.ifBlank { "未指定设备" },
             fileSystem = plan.fileSystem,
             timestamp = System.currentTimeMillis(),
-            detail = text,
+            detail = detail,
         )
         dataStore.edit { preferences ->
             val current = preferences[Keys.EVENTS]?.let { encoded ->

@@ -32,7 +32,6 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -46,10 +45,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +53,6 @@ import com.diskflow.app.domain.FormatPolicy
 import com.diskflow.app.domain.model.FileSystemType
 import com.diskflow.app.domain.model.StorageDevice
 import com.diskflow.app.domain.model.StorageUseCase
-import com.diskflow.app.ui.FormatExecution
 import com.diskflow.app.ui.FormatUiState
 import com.diskflow.app.ui.WizardStage
 import com.diskflow.app.ui.components.MetadataRow
@@ -70,7 +64,6 @@ import com.diskflow.app.ui.components.StatusPill
 import com.diskflow.app.ui.components.TechCard
 import com.diskflow.app.ui.components.volumeIcon
 import com.diskflow.app.ui.components.volumeKindLabel
-import com.diskflow.app.ui.theme.Error
 import com.diskflow.app.ui.theme.Mint
 import com.diskflow.app.ui.theme.TextSecondary
 
@@ -89,8 +82,6 @@ fun FormatScreen(
     onOpenSystemSettings: () -> Unit,
     onMarkCompleted: () -> Unit,
     onCancel: () -> Unit,
-    onExecuteFormat: () -> Unit,
-    onRefreshCapabilities: () -> Unit,
 ) {
     AnimatedContent(
         targetState = state.stage,
@@ -117,8 +108,6 @@ fun FormatScreen(
                 onOpenSystemSettings = onOpenSystemSettings,
                 onMarkCompleted = onMarkCompleted,
                 onCancel = onCancel,
-                onExecuteFormat = onExecuteFormat,
-                onRefreshCapabilities = onRefreshCapabilities,
             )
         }
     }
@@ -151,8 +140,8 @@ private fun FormatConfiguration(
         }
         item {
             NoticeCard(
-                title = "两种执行方式",
-                message = "获得 Root 时可由 DiskFlow 直接调用 mkfs 写入文件系统；未获得 Root 时仅提供方案与系统入口，不直接修改分区。",
+                title = "免 Root 工作方式",
+                message = "DiskFlow 负责检测、推荐与指引，不直接修改分区。最终可用格式及操作结果以系统工具为准。",
                 icon = Icons.Rounded.Shield,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
@@ -370,40 +359,10 @@ private fun FormatGuide(
     onOpenSystemSettings: () -> Unit,
     onMarkCompleted: () -> Unit,
     onCancel: () -> Unit,
-    onExecuteFormat: () -> Unit,
-    onRefreshCapabilities: () -> Unit,
 ) {
     val plan = state.plan
     val unit = FormatPolicy.allocationUnits(plan.fileSystem)
         .first { it.sizeKiB == plan.allocationUnitKiB }
-    var showConfirm by remember { mutableStateOf(false) }
-    val capabilities = state.capabilities
-    val rootReady = capabilities?.hasRoot == true
-    val formatSupported = capabilities?.availableFileSystems?.contains(plan.fileSystem) == true
-
-    if (showConfirm) {
-        AlertDialog(
-            onDismissRequest = { showConfirm = false },
-            title = { Text("确认格式化 ${plan.deviceName}？") },
-            text = {
-                Text(
-                    "将把设备重建为 ${plan.fileSystem.displayName} 文件系统，卷标" +
-                        " ${plan.volumeLabel.trim()}。设备上的全部数据会被清除且无法恢复。",
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showConfirm = false
-                        onExecuteFormat()
-                    },
-                ) { Text("已备份，开始格式化") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirm = false }) { Text("取消") }
-            },
-        )
-    }
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp),
@@ -426,7 +385,7 @@ private fun FormatGuide(
                 MetadataRow("文件系统", plan.fileSystem.displayName)
                 MetadataRow("卷标", plan.volumeLabel.trim())
                 MetadataRow("分配单元", unit.title)
-                MetadataRow("执行方式", if (rootReady) "Root 直接写入" else "Android 系统存储工具")
+                MetadataRow("执行方式", "Android 系统存储工具")
             }
         }
         if (!targetConnected) {
@@ -447,105 +406,6 @@ private fun FormatGuide(
                 icon = Icons.Rounded.WarningAmber,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
-        }
-        item { SectionTitle(null, "直接格式化") }
-        item {
-            TechCard(Modifier.padding(horizontal = 20.dp)) {
-                when {
-                    capabilities == null -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                "正在检测 Root 状态",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary,
-                            )
-                        }
-                    }
-
-                    !rootReady -> {
-                        Text("未获得 Root，无法直接写入文件系统", style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            capabilities.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        OutlinedButton(onClick = onRefreshCapabilities) { Text("重新检测") }
-                    }
-
-                    else -> {
-                        Text(
-                            capabilities.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Mint,
-                        )
-                        if (!formatSupported) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "系统缺少 ${plan.fileSystem.displayName} 的 mkfs 工具，可换用其他格式或改用系统工具。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Error,
-                            )
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        when (val execution = state.execution) {
-                            is FormatExecution.Running -> {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(execution.step, style = MaterialTheme.typography.bodyMedium)
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    "执行期间请勿拔出设备",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary,
-                                )
-                            }
-
-                            is FormatExecution.Finished -> {
-                                Text(
-                                    if (execution.success) "格式化完成" else "格式化失败",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = if (execution.success) Mint else Error,
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    execution.message,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary,
-                                )
-                            }
-
-                            FormatExecution.Idle -> Unit
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            Button(
-                onClick = { showConfirm = true },
-                enabled = rootReady && formatSupported && targetConnected && !state.isExecuting,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .height(54.dp),
-            ) {
-                Icon(Icons.Rounded.Shield, null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(9.dp))
-                Text(
-                    when {
-                        state.isExecuting -> "正在格式化…"
-                        !rootReady -> "需要 Root 才能直接格式化"
-                        !formatSupported -> "系统缺少该格式工具"
-                        else -> "直接格式化 ${plan.fileSystem.displayName}"
-                    },
-                )
-            }
         }
         item { SectionTitle(null, "在系统中完成") }
         item {

@@ -2,9 +2,6 @@ package com.diskflow.app.ui
 
 import android.content.Intent
 import android.net.Uri
-import com.diskflow.app.data.format.FormatCapabilities
-import com.diskflow.app.data.format.FormatEngine
-import com.diskflow.app.data.format.FormatOutcome
 import com.diskflow.app.data.local.DiskFlowStore
 import com.diskflow.app.data.storage.StorageRepository
 import com.diskflow.app.domain.model.FileSystemType
@@ -135,60 +132,10 @@ class DiskFlowViewModelTest {
         assertFalse(viewModel.fileSizeCheck().isSupported)
     }
 
-    @Test
-    fun `root execution records the actual outcome`() = runTest {
-        val store = FakeStore()
-        val engine = FakeFormatEngine()
-        val viewModel = createViewModel(store = store, engine = engine)
-        viewModel.createPlan()
-        viewModel.executeFormat()
-        assertEquals(1, engine.formatCalls)
-        assertTrue(viewModel.format.value.execution is FormatExecution.Finished)
-        assertEquals(OperationEventType.FORMAT_SUCCEEDED, store.recordedTypes.last())
-    }
-
-    @Test
-    fun `format is blocked when root is unavailable`() = runTest {
-        val store = FakeStore()
-        val engine = FakeFormatEngine(
-            capabilities = FormatCapabilities(false, emptySet(), "未获得 Root"),
-        )
-        val viewModel = createViewModel(store = store, engine = engine)
-        viewModel.createPlan()
-        viewModel.executeFormat()
-        assertEquals(0, engine.formatCalls)
-        assertTrue(store.recordedTypes.none { it == OperationEventType.FORMAT_SUCCEEDED })
-        assertEquals(FormatExecution.Idle, viewModel.format.value.execution)
-    }
-
     private fun createViewModel(
         repository: FakeStorageRepository = FakeStorageRepository(),
         store: FakeStore = FakeStore(),
-        engine: FakeFormatEngine = FakeFormatEngine(),
-    ) = DiskFlowViewModel(repository, store, engine)
-}
-
-private class FakeFormatEngine(
-    private val capabilities: FormatCapabilities = FormatCapabilities(
-        hasRoot = true,
-        availableFileSystems = FileSystemType.values().toSet(),
-        message = "测试环境",
-    ),
-    private val outcome: FormatOutcome = FormatOutcome(true, "已写入 exFAT 文件系统"),
-) : FormatEngine {
-    var formatCalls = 0
-
-    override suspend fun probe(): FormatCapabilities = capabilities
-
-    override suspend fun format(
-        device: StorageDevice,
-        plan: FormatPlan,
-        onStep: (String) -> Unit,
-    ): FormatOutcome {
-        formatCalls++
-        onStep("写入文件系统")
-        return outcome
-    }
+    ) = DiskFlowViewModel(repository, store)
 }
 
 private class FakeStorageRepository(
@@ -230,7 +177,7 @@ private class FakeStore : DiskFlowStore {
         draftState.value = plan
     }
 
-    override suspend fun addEvent(plan: FormatPlan, type: OperationEventType, detail: String?) {
+    override suspend fun addEvent(plan: FormatPlan, type: OperationEventType) {
         recordedTypes += type
         eventState.value = eventState.value + OperationEvent(
             id = "${type.name}-${recordedTypes.size}",
